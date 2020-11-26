@@ -1,6 +1,9 @@
 version: '3.7'
 
 services:
+  basketredis:
+    image: redis
+
   catalogdb:
     image: mongo
     
@@ -9,3 +12,9 @@ services:
     build:
       context: .
       dockerfile: CodeBase/Catalog.Microservice/Catalog.API/Dockerfile
+
+  basket.api:
+    image: ${DOCKER_REGISTRY-}basketapi
+    build:
+      context: .
+      dockerfile: CodeBase/Basket.Microservice/Basket.API/Dockerfile
