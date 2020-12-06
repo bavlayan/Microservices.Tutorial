@@ -1,5 +1,9 @@
-﻿using Basket.API.Entities;
+﻿using AutoMapper;
+using Basket.API.Entities;
 using Basket.API.Repository.Interfaces;
+using EventBusRabbitMQ.Common;
+using EventBusRabbitMQ.Events;
+using EventBusRabbitMQ.Producer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System;
@@ -16,9 +20,15 @@ namespace Basket.API.Controllers
     {
         private readonly IBasketRepository _basketRepository;
 
-        public BasketController(IBasketRepository basketRepository)
+        private readonly IMapper _mapper;
+
+        private readonly EventBusRabbitMQProducer _eventBusRabbitMQProducer;
+
+        public BasketController(IBasketRepository basketRepository, IMapper mapper, EventBusRabbitMQProducer eventBusRabbitMQProducer)
         {
             _basketRepository = basketRepository;
+            _mapper = mapper;
+            _eventBusRabbitMQProducer = eventBusRabbitMQProducer;
         }
 
         [HttpGet]
@@ -43,6 +53,37 @@ namespace Basket.API.Controllers
         {
             bool isDeleted = await _basketRepository.DeleteBasket(userName);
             return Ok(isDeleted);
+        }
+
+        [Route("[action]")]
+        [HttpPost]
+        [ProducesResponseType((int)HttpStatusCode.Accepted)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public async Task<ActionResult> CheckOut([FromBody]BasketCheckOut basketCheckOut)
+        {
+            BasketCart basket = await _basketRepository.GetBasketCart(basketCheckOut.UserName);
+            if (basket == null)
+                return BadRequest();
+
+            bool isRemoved = await _basketRepository.DeleteBasket(basketCheckOut.UserName);
+            if (!isRemoved)
+                return BadRequest();
+
+            BasketCheckoutEvent eventMessage = _mapper.Map<BasketCheckoutEvent>(basketCheckOut);
+            eventMessage.RequestId = Guid.NewGuid();
+            eventMessage.TotalPrice = basket.TotalPrice;
+
+            try
+            {
+                _eventBusRabbitMQProducer.PublishBasketCheckout(EventBusConstants.BasketCheckoutQueue, eventMessage);
+            }
+            catch (Exception)
+            {
+                throw;
+            }
+
+            return Accepted();
+
         }
     }
 }

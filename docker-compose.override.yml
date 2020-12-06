@@ -9,6 +9,13 @@ services:
     ports:
       - "27017:27017"
 
+  rabbitmq:
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
   basketredis:
     container_name: basketredis
     restart: always
@@ -31,8 +38,10 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - "ConnectionStrings:Redis=basketredis:6379"
+      - "EventBus:HostName=rabbitmq"
     depends_on:
       - basketredis
+      - rabbitmq
     volumes:
       - ${HOME}/.microsoft/usersecrets/:/root/.microsoft/usersecrets
       - ${HOME}/.aspnet/https:/root/.aspnet/https/

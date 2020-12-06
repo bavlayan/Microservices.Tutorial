@@ -6,6 +6,9 @@ services:
 
   catalogdb:
     image: mongo
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
     
   catalog.api:
     image: ${DOCKER_REGISTRY-}catalogapi
